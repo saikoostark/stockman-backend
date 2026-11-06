@@ -1,0 +1,110 @@
+msgid ""
+msgstr ""
+"Language: es\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "English"
+msgstr "Inglés"
+
+msgid "Arabic"
+msgstr "Árabe"
+
+msgid "German"
+msgstr "Alemán"
+
+msgid "Spanish"
+msgstr "Español"
+
+msgid "Invalid group policy attributes."
+msgstr "Los atributos de la política del grupo no son válidos."
+
+msgid "You do not have permission for this action."
+msgstr "No tiene permiso para realizar esta acción."
+
+msgid "Unknown fields are not allowed."
+msgstr "No se permiten campos desconocidos."
+
+msgid "Duplicate permissions are not allowed."
+msgstr "No se permiten permisos duplicados."
+
+msgid "Provide at least one change."
+msgstr "Indique al menos un cambio."
+
+msgid "Duplicate groups are not allowed."
+msgstr "No se permiten grupos duplicados."
+
+msgid "A reason is required for access changes."
+msgstr "Es necesario indicar un motivo para los cambios de acceso."
+
+msgid "Invalid group name."
+msgstr "El nombre del grupo no es válido."
+
+msgid "One or more groups do not exist."
+msgstr "Uno o más grupos no existen."
+
+msgid "Only registered permissions are allowed."
+msgstr "Solo se permiten permisos registrados."
+
+msgid "Access templates are not initialized."
+msgstr "Las plantillas de acceso no se han inicializado."
+
+msgid "Every granted action requires an explicit scope."
+msgstr "Cada acción permitida requiere un ámbito explícito."
+
+msgid "The last active access administrator cannot be removed."
+msgstr "No se puede eliminar al último administrador de acceso activo."
+
+msgid "A group with this name already exists."
+msgstr "Ya existe un grupo con este nombre."
+
+msgid "Group not found."
+msgstr "No se encontró el grupo."
+
+msgid "Invalid active status."
+msgstr "El estado de activación no es válido."
+
+msgid "User not found."
+msgstr "No se encontró el usuario."
+
+msgid "Invalid group selection."
+msgstr "La selección de grupos no es válida."
+
+msgid "Authentication is required."
+msgstr "Es necesario iniciar sesión."
+
+msgid "Invalid password."
+msgstr "La contraseña no es válida."
+
+msgid "Please choose a stronger password."
+msgstr "Elija una contraseña más segura."
+
+msgid "Unsupported language."
+msgstr "Idioma no compatible."
+
+msgid "Please check your registration details."
+msgstr "Revise sus datos de registro."
+
+msgid "This username is already in use."
+msgstr "Este nombre de usuario ya está en uso."
+
+msgid "Invalid username or password."
+msgstr "El nombre de usuario o la contraseña no son válidos."
+
+msgid "You have been signed out."
+msgstr "Ha cerrado sesión."
+
+msgid "The current password is incorrect."
+msgstr "La contraseña actual es incorrecta."
+
+msgid "Your password has been changed."
+msgstr "Se ha cambiado su contraseña."
+
+msgid "Provide both administrator username and password."
+msgstr "Indique el nombre de usuario y la contraseña del administrador."
+
+msgid "Access templates initialized."
+msgstr "Plantillas de acceso inicializadas."
+
+msgid "CSRF verification failed."
+msgstr "La verificación CSRF ha fallado."

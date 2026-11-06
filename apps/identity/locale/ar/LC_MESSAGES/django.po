@@ -1,0 +1,110 @@
+msgid ""
+msgstr ""
+"Language: ar\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Plural-Forms: nplurals=6; plural=(n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 && n%100<=99 ? 4 : 5);\n"
+
+msgid "English"
+msgstr "الإنجليزية"
+
+msgid "Arabic"
+msgstr "العربية"
+
+msgid "German"
+msgstr "الألمانية"
+
+msgid "Spanish"
+msgstr "الإسبانية"
+
+msgid "Invalid group policy attributes."
+msgstr "سمات سياسة المجموعة غير صالحة."
+
+msgid "You do not have permission for this action."
+msgstr "ليس لديك إذن لتنفيذ هذا الإجراء."
+
+msgid "Unknown fields are not allowed."
+msgstr "الحقول غير المعروفة غير مسموح بها."
+
+msgid "Duplicate permissions are not allowed."
+msgstr "لا يُسمح بتكرار الأذونات."
+
+msgid "Provide at least one change."
+msgstr "حدد تغييرًا واحدًا على الأقل."
+
+msgid "Duplicate groups are not allowed."
+msgstr "لا يُسمح بتكرار المجموعات."
+
+msgid "A reason is required for access changes."
+msgstr "يجب تقديم سبب لتغييرات الوصول."
+
+msgid "Invalid group name."
+msgstr "اسم المجموعة غير صالح."
+
+msgid "One or more groups do not exist."
+msgstr "مجموعة واحدة أو أكثر غير موجودة."
+
+msgid "Only registered permissions are allowed."
+msgstr "يُسمح فقط بالأذونات المسجلة."
+
+msgid "Access templates are not initialized."
+msgstr "لم تتم تهيئة قوالب الوصول."
+
+msgid "Every granted action requires an explicit scope."
+msgstr "يتطلب كل إجراء مسموح به نطاقًا محددًا."
+
+msgid "The last active access administrator cannot be removed."
+msgstr "لا يمكن إزالة آخر مسؤول وصول نشط."
+
+msgid "A group with this name already exists."
+msgstr "توجد مجموعة بهذا الاسم بالفعل."
+
+msgid "Group not found."
+msgstr "لم يتم العثور على المجموعة."
+
+msgid "Invalid active status."
+msgstr "حالة التفعيل غير صالحة."
+
+msgid "User not found."
+msgstr "لم يتم العثور على المستخدم."
+
+msgid "Invalid group selection."
+msgstr "اختيار المجموعات غير صالح."
+
+msgid "Authentication is required."
+msgstr "يجب تسجيل الدخول."
+
+msgid "Invalid password."
+msgstr "كلمة المرور غير صالحة."
+
+msgid "Please choose a stronger password."
+msgstr "يرجى اختيار كلمة مرور أقوى."
+
+msgid "Unsupported language."
+msgstr "اللغة غير مدعومة."
+
+msgid "Please check your registration details."
+msgstr "يرجى التحقق من بيانات التسجيل."
+
+msgid "This username is already in use."
+msgstr "اسم المستخدم هذا مستخدم بالفعل."
+
+msgid "Invalid username or password."
+msgstr "اسم المستخدم أو كلمة المرور غير صحيحة."
+
+msgid "You have been signed out."
+msgstr "تم تسجيل خروجك."
+
+msgid "The current password is incorrect."
+msgstr "كلمة المرور الحالية غير صحيحة."
+
+msgid "Your password has been changed."
+msgstr "تم تغيير كلمة المرور."
+
+msgid "Provide both administrator username and password."
+msgstr "أدخل اسم المستخدم وكلمة المرور للمسؤول."
+
+msgid "Access templates initialized."
+msgstr "تمت تهيئة قوالب الوصول."
+
+msgid "CSRF verification failed."
+msgstr "فشل التحقق من CSRF."
