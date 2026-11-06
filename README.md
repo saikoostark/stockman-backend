@@ -1,18 +1,20 @@
 # Stockman Backend
 
-Django 5.2 (LTS) + Django REST Framework API for the Stockman paper-trading app. The backend is the single source of truth for authorization, money math, and market data — the frontend never duplicates these rules.
+Django 5.2 (LTS) + Django REST Framework API for the Stockman paper-trading app. The backend is the **single source of truth** for authorization, money math, and market data — the frontend never duplicates these rules. It is a paper-trading platform only: no real money, no real orders are ever sent to an exchange.
 
 ## Features
 
-- Session + CSRF authentication; RBAC + ABAC authorization via groups with schema-validated attribute policies.
-- Audited virtual wallets with a balanced, append-only double-entry ledger. Funding only through audited top-up/withdrawal — no admin balance edits.
-- Spot trading: market and limit orders, FIFO cost lots, per-currency portfolio with realized/unrealized P&L.
-- Market data behind a provider adapter interface: Binance (public REST) and EODHD (EGX, gated by `EGX_ACCESS_VERIFIED`).
-- Price and percent-change alert rules evaluated by a background worker.
-- SSE event stream (`/api/v1/events/`) with `Last-Event-ID` resume and `resync`.
-- Append-only audit trail with secret redaction.
-- JSON envelope `{data, metadata, errors}`; money is decimal strings; pagination via `page`/`page_size`.
-- Internationalized API messages (en/ar/de/es).
+- **Session + CSRF authentication** and **RBAC + ABAC authorization** — groups carry schema-validated attribute policies (per-market, per-currency scope), combined by OR with explicit deny vetoes and fail-closed behaviour on unknown schemas.
+- **Audited virtual wallets** built on a balanced, append-only, double-entry ledger. Funding only through audited top-up/withdrawal requests — there is no admin balance override.
+- **Spot trading**: market and limit orders, FIFO cost lots, per-currency portfolio with realized/unrealized P&L. No shorting, margin, derivatives, FX conversion, fees, or interest.
+- **Market data behind a provider-adapter interface**: Binance (public REST) for crypto and EODHD for EGX (gated by `EGX_ACCESS_VERIFIED`). Prices are stored as scaled integers, never floats.
+- **Alerts**: price and percent-change rules evaluated by a background worker.
+- **SSE event stream** (`/api/v1/events/`) with `Last-Event-ID` resume and `resync`, plus durable owner-scoped notifications.
+- **Append-only audit trail** with secret redaction.
+- **Idempotent financial mutations** via `Idempotency-Key` (same key + body replays, different body conflicts).
+- **JSON envelope** `{data, metadata, errors}` with `request_id` correlation and `page`/`page_size` pagination. Money is decimal strings; enums/currency/date/decimal strings are locale-independent.
+- **Internationalized API messages** (en/ar/de/es) via gettext.
+- **OpenAPI schema + Swagger UI** (drf-spectacular) for every endpoint.
 
 ## Requirements
 
@@ -22,7 +24,7 @@ Django 5.2 (LTS) + Django REST Framework API for the Stockman paper-trading app.
 ## Setup
 
 ```bash
-cp .env.example .env     # then fill in secrets (DJANGO_SECRET_KEY, EODHD_API_TOKEN, ...)
+cp .env.example .env     # fill in secrets (DJANGO_SECRET_KEY, EODHD_API_TOKEN, ...)
 uv sync
 uv run python manage.py migrate
 uv run python manage.py bootstrap   # creates the default groups/roles
@@ -30,34 +32,107 @@ uv run python manage.py bootstrap   # creates the default groups/roles
 
 ## Run
 
+The backend runs as **two processes** sharing one SQLite database:
+
 ```bash
-# API server
+# API server (ASGI)
 uv run uvicorn config.asgi:application --host 127.0.0.1 --port 8000
 
 # Background worker (market data ingestion, order matching, alert evaluation)
 uv run python manage.py run_worker
 ```
 
+## Architecture
+
+Stockman is a **modular monolith**: one Django project (`config/`) with domain packages under `apps/`. Each domain owns its models, services, selectors, policies, serializers, and `urls.py`; the main integrator (`config/`) owns settings, root URL includes, and shared foundations.
+
+```
+config/          project settings, ASGI entrypoint, root URLs
+apps/common/     APIView envelope, exceptions, idempotency, request-id middleware
+apps/identity/   users, groups, RBAC+ABAC policy engine, bootstrap
+apps/markets/    instruments, quotes, price history, provider adapters, watchlist
+apps/wallets/    wallets, double-entry ledger, funding, money math
+apps/trading/    orders, fills, FIFO cost lots, portfolio
+apps/alerts/     price/percent-change alert rules + evaluation
+apps/events/     durable events, notifications, SSE stream
+apps/audit/      append-only audit trail
+apps/operations/ worker loop, health endpoint, worker lease
+```
+
+### How a request flows
+
+1. **HTTP → view.** Class-based views are thin adapters: they parse input into immutable command DTOs, delegate to a domain service or selector, and serialize result DTOs back through `apps/common/api.py`.
+2. **Authorization.** Every view calls `AuthorizationPolicy.require(user, action, ...)` (or `.scope(...)` for list queries). Permission *and* attribute scope are enforced server-side; the frontend is never trusted.
+3. **Domain logic.** Services are focused use-case classes (e.g. `MarketDataIngestor`, `OrderMatcher`); selectors group related reads; policies express domain rules. Querysets and services re-check authorization independently.
+4. **Envelope.** `APIView.respond(...)` wraps results in `{data, metadata: {request_id, pagination}, errors: []}` and converts `Decimal`/`UUID`/`datetime`/dataclasses to JSON-safe values. `request_id` is generated by middleware for end-to-end correlation.
+
+### Money math — scaled integers
+
+`apps/wallets/money.py` owns conversion between checked decimal strings and integer units (`EGP = 2` decimals, `USDT = 8`). All storage and arithmetic use integer/`Decimal` units; the API always speaks decimal strings. Services reject overflow, non-positive funding, and excessive precision. Wallet balances live in an append-only ledger (debit/credit with available/reserved accounts per currency), never a settable balance column.
+
+### Trading — FIFO cost lots
+
+A market buy reserves a cash budget; a market sell reserves owned quantity; limits reserve cash or assets. When the worker matches an order against an eligible observation, it walks FIFO `CostLot`s and consumes them into `LotConsumption` records to compute realized P&L. Filled, cancelled, and expired orders are terminal. `AccessRevocation.cancel_unauthorized()` cancels orders the user can no longer place (e.g. after a policy change) inside the same transaction.
+
+### Market data — provider adapters
+
+`markets.Instrument` records `provider` and `provider_symbol` plus display metadata (`price_scale`, `quantity_scale`, `quantity_step`, `minimum_quantity`, `minimum_notional`, `data_mode`, `delay_seconds`, `cadence_seconds`). The `MarketDataIngestor.refresh()` poll loop calls provider adapters (Binance public REST; EODHD gated by `EGX_ACCESS_VERIFIED`), writes `Quote`/`PriceObservation` rows, and marks startup/backfill observations non-tradable so a stale price can never be treated as fresh. `ProviderHealth` and `ProviderUsage` track provider status and call budgets explicitly.
+
+### Events, notifications, SSE
+
+`EventPublisher.publish(user, kind, payload)` writes a durable owner-scoped event in the caller's transaction. `apps/events/stream.py` serves SSE with cookie auth (never URL tokens), `Last-Event-ID` resume, heartbeats, and `resync`; sessions and policies are rechecked on delivery/replay. Notification content is a **translation key plus typed parameters**, not a sentence frozen in one language.
+
+### Audit
+
+`AuditRecorder.record(...)` inserts an append-only `AuditEvent` fact. Financial mutations, durable events, and audit records commit together. Access edits are audited and increment an `authorization_revision` so workers and SSE reauthorize against fresh policy. Secrets are never recorded.
+
 ## Tests and checks
 
 ```bash
-uv run pytest            # test suite
-uv run ruff check .      # lint
-uv run mypy .            # type check
+uv run pytest            # full test suite (pytest + pytest-django)
+uv run ruff check .      # lint (E, F, I, UP, B)
+uv run mypy apps config  # type check (django-stubs + djangorestframework-stubs)
 ```
 
-## API
+Coverage of `apps/` is collected by `pytest-cov`. Live market-data checks are opt-in and tagged `live`. Test files live under `tests/` — key suites: `test_wallet_money.py` (scaled-integer rounding), `test_wallet_transactions.py` (ledger balance/invariants), `test_trading_execution.py` (order matching, FIFO lots), `test_market_adapters.py` (provider parsing), `test_market_services.py` (ingestion/tradability), `test_identity.py` (RBAC/ABAC), `test_alerts.py` (rule evaluation), `test_stream.py` (SSE resume), `test_operations.py` (worker), `test_common.py` (envelope/idempotency).
 
-- Base path: `/api/v1/`
-- OpenAPI schema: `/api/v1/schema/` · Swagger UI: `/api/v1/docs/` · health: `/api/v1/health/`
-- A categorized Postman collection is in [`postman/`](postman/stockman.postman_collection.json).
+## API surface
+
+Base path `/api/v1/` — trailing slash is canonical.
+
+| Domain | Endpoints |
+| --- | --- |
+| Auth | `auth/csrf/`, `auth/register/`, `auth/login/`, `auth/logout/`, `auth/me/`, `auth/password/`, `auth/preferences/`, `auth/capabilities/` |
+| Markets | `instruments/`, `instruments/<uuid>/`, `instruments/<uuid>/history/`, `watchlist/`, `watchlist/<uuid>/`, `providers/` |
+| Wallets | `wallets/`, `wallets/<currency>/topups/`, `wallets/<currency>/withdrawals/`, `wallets/<currency>/ledger/`, `wallets/journals/<uuid>/reverse/` |
+| Trading | `orders/`, `orders/<uuid>/cancel/`, `fills/`, `portfolio/` |
+| Alerts | `alerts/`, `alerts/<uuid>/` |
+| Events | `notifications/`, `notifications/<uuid>/read/`, `events/` |
+| Audit | `audit/` |
+| Administration | `administration/groups/`, `administration/groups/<int>/`, `administration/users/`, `administration/users/<int>/groups/` |
+
+Schema and docs: `/api/v1/schema/` (OpenAPI) · `/api/v1/docs/` (Swagger UI) · `/api/v1/health/`.
+
+All financial POSTs require an `Idempotency-Key` header. Example payloads:
+
+- Market buy: `{"instrument_id": "<uuid>", "side": "BUY", "order_type": "MARKET", "budget": "100.00"}`
+- Market sell: `{"instrument_id": "<uuid>", "side": "SELL", "order_type": "MARKET", "quantity": "10"}`
+- Limit: `{"instrument_id": "<uuid>", "side": "BUY", "order_type": "LIMIT", "quantity": "10", "limit_price": "12.34"}`
+- Funding: `{"amount": "100.00", "reason": "Practice funds"}`
+
+A categorized Postman collection is in [`postman/`](postman/stockman.postman_collection.json) (secrets are never exported into it).
 
 ## Configuration
 
-All settings come from environment variables (see `.env.example`). Key ones:
+All settings come from environment variables (see `.env.example`). Key groups:
 
-- `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, `SECURE_COOKIES`
-- `DATABASE_PATH` (SQLite file)
-- `BINANCE_BASE_URL`, `BINANCE_SYMBOLS`, `MARKET_POLL_SECONDS`, `QUOTE_MAX_AGE_SECONDS`, `MARKET_ORDER_TIMEOUT_SECONDS`
-- `EODHD_API_TOKEN`, `EGX_ACCESS_VERIFIED`, `EGX_SYMBOLS`, `EODHD_DAILY_CALL_LIMIT`
-- `SSE_POLL_SECONDS`, `SSE_HEARTBEAT_SECONDS`, `EVENT_RETENTION_DAYS`
+- **Security**: `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, `SECURE_COOKIES`
+- **Database**: `DATABASE_PATH` (SQLite file)
+- **Market data**: `BINANCE_BASE_URL`, `BINANCE_SYMBOLS`, `MARKET_POLL_SECONDS`, `QUOTE_MAX_AGE_SECONDS`, `MARKET_ORDER_TIMEOUT_SECONDS`
+- **EGX (gated)**: `EODHD_API_TOKEN`, `EGX_ACCESS_VERIFIED`, `EGX_SYMBOLS`, `EODHD_DAILY_CALL_LIMIT`
+- **Events**: `SSE_POLL_SECONDS`, `SSE_HEARTBEAT_SECONDS`, `EVENT_RETENTION_DAYS`
+
+## Maintenance commands
+
+- `uv run python manage.py reconcile_ledger` — verify ledger invariants per currency.
+- `uv run python manage.py bootstrap` — (re)create default groups/roles.
