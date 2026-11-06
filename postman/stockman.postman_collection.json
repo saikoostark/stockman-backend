@@ -1,0 +1,458 @@
+{
+  "info": {
+    "_postman_id": "stockman-backend-v1",
+    "name": "Stockman API",
+    "description": "Audited spot paper-trading API. Session cookies + CSRF; no bearer tokens. Workflow: 1) GET auth/csrf/ to obtain a csrf_token and session cookie, 2) POST auth/register/ or auth/login/ with X-CSRFToken, 3) include the session cookie and X-CSRFToken on every mutating request. All financial POSTs require an Idempotency-Key header. Responses use the {data, metadata, errors} envelope; decimal money values are strings.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://127.0.0.1:8000/api/v1" },
+    { "key": "csrf_token", "value": "" },
+    { "key": "session_ready", "value": "false" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Get CSRF token",
+          "event": [
+            { "listen": "test", "script": { "exec": [
+              "var d = pm.response.json();",
+              "if (d.data && d.data.csrf_token) pm.environment.set('csrf_token', d.data.csrf_token);"
+            ], "type": "text/javascript" } }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/auth/csrf/", "host": ["{{base_url}}"], "path": ["auth", "csrf", ""] }
+          }
+        },
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"username\": \"trader\", \"email\": \"trader@example.com\", \"password\": \"Strong-pass-123!\"}" },
+            "url": { "raw": "{{base_url}}/auth/register/", "host": ["{{base_url}}"], "path": ["auth", "register", ""] }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"username\": \"trader\", \"password\": \"Strong-pass-123!\"}" },
+            "url": { "raw": "{{base_url}}/auth/login/", "host": ["{{base_url}}"], "path": ["auth", "login", ""] }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "X-CSRFToken", "value": "{{csrf_token}}" } ],
+            "url": { "raw": "{{base_url}}/auth/logout/", "host": ["{{base_url}}"], "path": ["auth", "logout", ""] }
+          }
+        },
+        {
+          "name": "Current user",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/auth/me/", "host": ["{{base_url}}"], "path": ["auth", "me", ""] }
+          }
+        },
+        {
+          "name": "Change password",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"current_password\": \"Strong-pass-123!\", \"new_password\": \"New-strong-pass-456!\"}" },
+            "url": { "raw": "{{base_url}}/auth/password/", "host": ["{{base_url}}"], "path": ["auth", "password", ""] }
+          }
+        },
+        {
+          "name": "Set locale preference",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"locale\": \"ar\"}" },
+            "url": { "raw": "{{base_url}}/auth/preferences/", "host": ["{{base_url}}"], "path": ["auth", "preferences", ""] }
+          }
+        },
+        {
+          "name": "Capabilities",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/auth/capabilities/", "host": ["{{base_url}}"], "path": ["auth", "capabilities", ""] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Markets",
+      "item": [
+        {
+          "name": "List instruments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/instruments/?page=1&page_size=25", "host": ["{{base_url}}"], "path": ["instruments", ""], "query": [
+              { "key": "market", "value": "CRYPTO", "disabled": true },
+              { "key": "currency", "value": "USDT", "disabled": true },
+              { "key": "search", "value": "btc", "disabled": true }
+            ] }
+          }
+        },
+        {
+          "name": "Instrument detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/instruments/{{instrument_id}}/", "host": ["{{base_url}}"], "path": ["instruments", "{{instrument_id}}", ""] }
+          }
+        },
+        {
+          "name": "Instrument history",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/instruments/{{instrument_id}}/history/?kind=observations", "host": ["{{base_url}}"], "path": ["instruments", "{{instrument_id}}", "history", ""], "query": [ { "key": "kind", "value": "observations" } ] }
+          }
+        },
+        {
+          "name": "Watchlist",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/watchlist/", "host": ["{{base_url}}"], "path": ["watchlist", ""] }
+          }
+        },
+        {
+          "name": "Add to watchlist",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"instrument_id\": \"{{instrument_id}}\"}" },
+            "url": { "raw": "{{base_url}}/watchlist/", "host": ["{{base_url}}"], "path": ["watchlist", ""] }
+          }
+        },
+        {
+          "name": "Provider status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/providers/", "host": ["{{base_url}}"], "path": ["providers", ""] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Wallets",
+      "item": [
+        {
+          "name": "List wallets",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/wallets/", "host": ["{{base_url}}"], "path": ["wallets", ""] }
+          }
+        },
+        {
+          "name": "Top up",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "topup-{{$guid}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"amount\": \"1000.00\", \"reason\": \"Practice funds\"}" },
+            "url": { "raw": "{{base_url}}/wallets/USDT/topups/", "host": ["{{base_url}}"], "path": ["wallets", "USDT", "topups", ""] }
+          }
+        },
+        {
+          "name": "Withdraw",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "withdraw-{{$guid}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"amount\": \"50.00\", \"reason\": \"Take practice profit out\"}" },
+            "url": { "raw": "{{base_url}}/wallets/USDT/withdrawals/", "host": ["{{base_url}}"], "path": ["wallets", "USDT", "withdrawals", ""] }
+          }
+        },
+        {
+          "name": "Ledger",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/wallets/USDT/ledger/", "host": ["{{base_url}}"], "path": ["wallets", "USDT", "ledger", ""] }
+          }
+        },
+        {
+          "name": "Reverse journal",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "reverse-{{$guid}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"reason\": \"Correct a mistaken top-up\"}" },
+            "url": { "raw": "{{base_url}}/wallets/journals/{{journal_id}}/reverse/", "host": ["{{base_url}}"], "path": ["wallets", "journals", "{{journal_id}}", "reverse", ""] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Trading",
+      "item": [
+        {
+          "name": "List orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/orders/", "host": ["{{base_url}}"], "path": ["orders", ""] }
+          }
+        },
+        {
+          "name": "Market buy (cash budget)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "order-{{$guid}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"instrument_id\": \"{{instrument_id}}\", \"side\": \"BUY\", \"order_type\": \"MARKET\", \"budget\": \"100.00\"}" },
+            "url": { "raw": "{{base_url}}/orders/", "host": ["{{base_url}}"], "path": ["orders", ""] }
+          }
+        },
+        {
+          "name": "Market sell (quantity)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "order-{{$guid}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"instrument_id\": \"{{instrument_id}}\", \"side\": \"SELL\", \"order_type\": \"MARKET\", \"quantity\": \"0.001\"}" },
+            "url": { "raw": "{{base_url}}/orders/", "host": ["{{base_url}}"], "path": ["orders", ""] }
+          }
+        },
+        {
+          "name": "Limit order",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Idempotency-Key", "value": "order-{{$guid}}" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"instrument_id\": \"{{instrument_id}}\", \"side\": \"BUY\", \"order_type\": \"LIMIT\", \"quantity\": \"0.001\", \"limit_price\": \"50000\"}" },
+            "url": { "raw": "{{base_url}}/orders/", "host": ["{{base_url}}"], "path": ["orders", ""] }
+          }
+        },
+        {
+          "name": "Cancel order",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "Idempotency-Key", "value": "cancel-{{$guid}}" }
+            ],
+            "url": { "raw": "{{base_url}}/orders/{{order_id}}/cancel/", "host": ["{{base_url}}"], "path": ["orders", "{{order_id}}", "cancel", ""] }
+          }
+        },
+        {
+          "name": "Fills",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/fills/", "host": ["{{base_url}}"], "path": ["fills", ""] }
+          }
+        },
+        {
+          "name": "Portfolio",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/portfolio/", "host": ["{{base_url}}"], "path": ["portfolio", ""] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Alerts",
+      "item": [
+        {
+          "name": "List alerts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/alerts/", "host": ["{{base_url}}"], "path": ["alerts", ""] }
+          }
+        },
+        {
+          "name": "Create price alert",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"instrument_id\": \"{{instrument_id}}\", \"kind\": \"PRICE_ABOVE\", \"threshold\": \"80000\"}" },
+            "url": { "raw": "{{base_url}}/alerts/", "host": ["{{base_url}}"], "path": ["alerts", ""] }
+          }
+        },
+        {
+          "name": "Create percent-change alert",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"instrument_id\": \"{{instrument_id}}\", \"kind\": \"PERCENT_RISE\", \"threshold\": \"5\", \"window_seconds\": 3600}" },
+            "url": { "raw": "{{base_url}}/alerts/", "host": ["{{base_url}}"], "path": ["alerts", ""] }
+          }
+        },
+        {
+          "name": "Update / delete alert",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"enabled\": false}" },
+            "url": { "raw": "{{base_url}}/alerts/{{alert_id}}/", "host": ["{{base_url}}"], "path": ["alerts", "{{alert_id}}", ""] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications & Events",
+      "item": [
+        {
+          "name": "List notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/notifications/", "host": ["{{base_url}}"], "path": ["notifications", ""] }
+          }
+        },
+        {
+          "name": "Mark notification read",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "X-CSRFToken", "value": "{{csrf_token}}" } ],
+            "url": { "raw": "{{base_url}}/notifications/{{notification_id}}/read/", "host": ["{{base_url}}"], "path": ["notifications", "{{notification_id}}", "read", ""] }
+          }
+        },
+        {
+          "name": "Event stream (SSE)",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Last-Event-ID", "value": "", "disabled": true } ],
+            "url": { "raw": "{{base_url}}/events/", "host": ["{{base_url}}"], "path": ["events", ""] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Audit & Administration",
+      "item": [
+        {
+          "name": "Audit trail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/audit/", "host": ["{{base_url}}"], "path": ["audit", ""] }
+          }
+        },
+        {
+          "name": "List groups",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/administration/groups/", "host": ["{{base_url}}"], "path": ["administration", "groups", ""] }
+          }
+        },
+        {
+          "name": "Update group policy",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"permissions\": [\"markets.read\"], \"attributes\": {\"schema_version\": 1, \"scopes\": {\"markets.read\": {\"ownership\": \"all\", \"markets\": [\"CRYPTO\"]}}}, \"reason\": \"Scope review\"}" },
+            "url": { "raw": "{{base_url}}/administration/groups/{{group_id}}/", "host": ["{{base_url}}"], "path": ["administration", "groups", "{{group_id}}", ""] }
+          }
+        },
+        {
+          "name": "List users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/administration/users/", "host": ["{{base_url}}"], "path": ["administration", "users", ""] }
+          }
+        },
+        {
+          "name": "Set user groups",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "X-CSRFToken", "value": "{{csrf_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": { "mode": "raw", "raw": "{\"group_ids\": [2], \"reason\": \"Grant auditor read access\"}" },
+            "url": { "raw": "{{base_url}}/administration/users/{{user_id}}/groups/", "host": ["{{base_url}}"], "path": ["administration", "users", "{{user_id}}", "groups", ""] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Operations",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/health/", "host": ["{{base_url}}"], "path": ["health", ""] }
+          }
+        },
+        {
+          "name": "OpenAPI schema",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/schema/", "host": ["{{base_url}}"], "path": ["schema", ""] }
+          }
+        }
+      ]
+    }
+  ]
+}
